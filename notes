@@ -1,0 +1,165 @@
+a small warning: 
+these notes are made as i work on different aspects of the overall project, and closely resemble my thoughts at the time of writing.
+do not expect a thoughtfully laid out process of how to do this, the notes are more stream-of-consciousness.
+profanity, humor, satire, and screaming into the void are present throughout.
+
+Servo Motor controller notes
+
+Connection notes:
+picocom --baud 115200 --imap lfcrlf /dev/cuaUx
+						
+					                            ^replace x with port number,found in /dev
+						 
+		                       ^ mapping!! this re-maps inbound characters
+			                        in this case, if picocom sees a linefeed
+			                        it replaces it with: carriage return,linefeed. 	
+			                        this is needed for the STM32 running 
+			                         mecrisp, as the forthOS only sends a LF
+
+ 	        ^ set baudrate
+
+	 so. once all that is set, you will see the forth interpreter on your
+	 picocom terminal. kinda nice, aint it.
+
+25feb23
+
+whew. been a while since i did anything with forth on an STM32F103 chip.
+a lot of this will be overlap with other notes, but it turns out im good with
+functional documentation but utter shit with organization.
+
+this project is using Hackaday Forth, a modified version of Mecrisp-Stellaris
+forth built up especially for this STM chip.  
+ill save the html pages along with this so its available offline, or in the event
+civilization has fallen to a fill-in-the-blank apocalypse and you have somehow
+managed to find this usb drive, mount it, and are now reading through all the 
+information on it in a desperate attempt to find something to rebuild from the 
+ashes.  you may be disappointed but at least you may be entertained.
+
+this project uses a magnetic isolator (the new hot shit to replace opto-isolators)
+because we need to talk to the chip serial port but power everything else with a 
+modestly high current 5vdc supply because of the servo which can pull around 750ma
+and must have 5ish volts. more than the humble usb port from my laptop is willing
+or able to provide.
+the isolator is based on the ADUM1201 chipset and made by HiLetgo just in case you
+need one in the future.
+interesting note, it will do 3vdc on one side (the laptop rs232 adaptor) and 
+5vdc (on the STM32 side) but its not unidirectional in this application.
+you need 3vdc on the vdo2 side and 5vdc on the vdo1 side.
+
+the gpio pin used is b5, and within the forth environment we have flashed on 
+the chip its called pb5 ('pin' b5 seems to be the notation standard)
+
+to initialize the pin for output we must define its operation with:
+omode-pp pb5 io-mode!
+its been too long since i was ass deep with forth programming so i cant recall
+exactly what this does. it may help to dig into the file "Mecrisp-Stellaris Hackady
+Forth notes" included on this storage device. but who really knows.
+
+once the pin is initialized we can make it logic high or logic low:
+pb5 ios!  (set pin high)
+pb5 ioc!  (set pin low)
+
+this doesnt do much for the servo, it needs 5vdc PWM to do anything.
+so.. th 5vdc control must be switched with a transistor.
+now would be a good time to find some documentation about NPN transistors.
+because im using NPN transistors, the signal to the servo will be inverted 
+and an ios! to pb5 will result in -5vdc being sent to the servo. not what we need.
+so another NPN transistor is worked in amongst it all to invert the inverted signal
+resulting in +5vdc being sent to the servo.
+
+but wait. theres more!
+
+because the STM chip running forth has no native PWM (pulse wave modulated) output, 
+we have to fake it.
+this gets fun.
+
+the servo we are using, (and most modern servos, for that matter) needs to have
+a 20 millisecond duty cycle at 50Hz.
+so we 'bit bang' the output waveform by jiggering the pin high and low with just
+the right timing so that the servo receives what it expects as a command to 
+move position.
+
+still with me? good.
+
+the duty cycle.
+the control signal expected by the servo is between 500 and 2500 microseconds
+within a 20 millisecond pulse. 
+now is an excellent time to remember 1 millisecond is 1000 microseconds.
+
+heres the code to move it a bit:
+: test		(define a new word)
+50 0 do		(set loop parameters)
+pb5 ios! 1 ms	(bring pin b5 high for 1ms)
+pb5 ioc! 19 ms	(bring pin b5 low for 19ms)
+loop		(loop for the defined number of times, in this case 50 - because 
+		 we have to have this run at 50Hz)
+;		(close the forth definition of the new word 'test')
+
+to refine the movement, we need a bit more granularity in the timing, and lucky for
+us one of the built in timing commands is 'us' for microseconds.
+
+so.. to move the servo with more fine grained positioning we move the timing to
+microseconds.
+: test2
+50 0 do
+pb5 ios! 1500 us
+pb5 ioc! 18500 us
+loop
+;
+
+and now that we have two words built to move the servo, we combine the two into a 
+new word:
+: dance
+10 0 do
+test2
+test
+loop
+;
+
+executing the 'dance' word makes the servo boogie like John Travolta.
+the word takes 20 seconds to run, remember.. ten repeats of two 1sec commands will
+take 20 seconds.
+the smallest PWM the servo will recognize is 1sec duration. and just to repeat the
+important shit, within that one second pulse the first .5 to 2.5ms is the signal to 
+tell the servo where to go along its transit path.
+
+according to the data sheet (and shown through blood, sweat, and tears of math i 
+really am not suited for, this high this late at night..)
+the full range of the servo is demonstrated with the two 'words':
+: test4
+50 0 do
+pb5 ios! 500 us
+pb5 ioc! 19500 us
+loop
+;
+
+and
+: test5
+50 0 do
+pb5 ios! 2500 us
+pb5 ioc! 17500 us
+loop
+;
+
+
+so far, if you want to bounce between positional settings on the servo, it seems
+a 20us interval is needed between the two positional commands before anything moves.
+i built a word to move the servo to position X, and another word to move the servo
+to position X+10us.
+then defined a loop across the two new words, and nothing happened.
+in reality, something probably happened. im guessing the servo actually moved but
+the postional difference was too small for me to discern.
+so i redefined the X+ word as X+20us and that dear friends is something i can see
+actually move. so the lower bound of positional difference im gonna set at 20us.
+it could be 15us but fuckit, what i have will more than likely work for what we need
+with the final project of jiggling a wire to move some ceramic fishies to and fro
+as a reaction to changes in the near environment.
+which is a good time to mention the other important part of the project - sound.
+or.. probably sound. Heather wants this project to make a sculpture move in 
+response to whats happening around it. and weve decided the best case (so far) is 
+to make the servo movement a result of ambient noise.
+but thats later in these notes. for now, making the damn thing move at all is 
+proving to be an adventure.
+
+
+
