@@ -1,0 +1,36 @@
+omode-pp pb5 io-mode!
+
+: test		
+50 0 do		
+pb5 ios! 1 ms	
+pb5 ioc! 19 ms	
+loop		
+;
+
+: test2
+50 0 do
+pb5 ios! 1500 us
+pb5 ioc! 18500 us
+loop
+;
+
+: dance
+10 0 do
+test2
+test
+loop
+;
+
+: test4
+50 0 do
+pb5 ios! 500 us
+pb5 ioc! 19500 us
+loop
+;
+
+: test5
+50 0 do
+pb5 ios! 2500 us
+pb5 ioc! 17500 us
+loop
+;
