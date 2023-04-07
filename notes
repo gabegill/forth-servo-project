@@ -2,19 +2,23 @@ a small warning:
 these notes are made as i work on different aspects of the overall project, and closely resemble my thoughts at the time of writing.
 do not expect a thoughtfully laid out process of how to do this, the notes are more stream-of-consciousness.
 profanity, humor, satire, and screaming into the void are present throughout.
+also - ive pulled these notes from a thumb drive i keep specially for all this stuff, so you will see references to other stuff that 
+is not included with this repo.
+
+
 
 Servo Motor controller notes
 
 Connection notes:
 picocom --baud 115200 --imap lfcrlf /dev/cuaUx
 						
-					                            ^replace x with port number,found in /dev
+					 ^replace x with port number,found in /dev
 						 
-		                       ^ mapping!! this re-maps inbound characters
-			                        in this case, if picocom sees a linefeed
-			                        it replaces it with: carriage return,linefeed. 	
-			                        this is needed for the STM32 running 
-			                         mecrisp, as the forthOS only sends a LF
+		             ^ mapping!! this re-maps inbound characters
+			       in this case, if picocom sees a linefeed
+			       it replaces it with: carriage return,linefeed. 	
+			       this is needed for the STM32 running 
+			       mecrisp, as the forthOS only sends a LF
 
  	        ^ set baudrate
 
@@ -29,6 +33,8 @@ functional documentation but utter shit with organization.
 
 this project is using Hackaday Forth, a modified version of Mecrisp-Stellaris
 forth built up especially for this STM chip.  
+link to the page that started it all:  https://hackaday.com/2017/01/27/forth-the-hackers-language/
+
 ill save the html pages along with this so its available offline, or in the event
 civilization has fallen to a fill-in-the-blank apocalypse and you have somehow
 managed to find this usb drive, mount it, and are now reading through all the 
